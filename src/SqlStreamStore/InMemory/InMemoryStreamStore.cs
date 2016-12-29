@@ -23,7 +23,7 @@ namespace SqlStreamStore
         private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
         private readonly Action _onStreamAppended;
         private readonly Dictionary<string, InMemoryStream> _streams = new Dictionary<string, InMemoryStream>();
-        private readonly Subject<Unit> _subscriptions = new Subject<Unit>();
+        private readonly Subject<StreamStoreNotificationInfo> _subscriptions = new Subject<StreamStoreNotificationInfo>();
         private readonly InterlockedBoolean _signallingToSubscribers = new InterlockedBoolean();
         private int _currentPosition;
         private static readonly ReadNextStreamPage s_readNextNotFound = (_, ct) =>
@@ -50,7 +50,7 @@ namespace SqlStreamStore
                 {
                     Task.Run(() =>
                     {
-                        _subscriptions.OnNext(Unit.Default);
+                        _subscriptions.OnNext(new StreamStoreNotificationInfo(null, null));
                         _signallingToSubscribers.Set(false);
                     });
                 }

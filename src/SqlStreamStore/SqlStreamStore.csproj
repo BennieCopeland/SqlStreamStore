@@ -110,6 +110,7 @@
     <Compile Include="Streams\StreamMessageExtensions.cs" />
     <Compile Include="Streams\ReadStreamPage.cs" />
     <Compile Include="Streams\StreamVersion.cs" />
+    <Compile Include="Subscriptions\StreamStoreNotificationInfo.cs" />
     <Compile Include="Subscriptions\StreamSubscription.cs" />
     <Compile Include="Subscriptions\SubscriptionDropped.cs" />
     <Compile Include="Streams\WrongExpectedVersionException.cs" />

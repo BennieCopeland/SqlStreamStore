@@ -1,6 +1,7 @@
 ﻿namespace SqlStreamStore.Subscriptions
 {
     using System;
+    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
     using Nito.AsyncEx;
@@ -30,7 +31,7 @@
             string streamId,
             int? continueAfterVersion,
             IReadonlyStreamStore readonlyStreamStore,
-            IObservable<Unit> streamStoreAppendedNotification,
+            IObservable<StreamStoreNotificationInfo> streamStoreAppendedNotification,
             StreamMessageReceived streamMessageReceived,
             SubscriptionDropped subscriptionDropped,
             HasCaughtUp hasCaughtUp,
@@ -43,14 +44,17 @@
             _streamMessageReceived = streamMessageReceived;
             _prefectchJsonData = prefectchJsonData;
             _subscriptionDropped = subscriptionDropped ?? ((_, __, ___) => { });
-            _hasCaughtUp = hasCaughtUp ?? ((_) => { });
+            _hasCaughtUp = hasCaughtUp ?? (_ => { });
             Name = string.IsNullOrWhiteSpace(name) ? Guid.NewGuid().ToString() : name;
 
             readonlyStreamStore.OnDispose += ReadonlyStreamStoreOnOnDispose;
 
-            _notification = streamStoreAppendedNotification.Subscribe(_ =>
+            _notification = streamStoreAppendedNotification.Subscribe(info =>
             {
-                _streamStoreNotification.Set();
+                if(info.StreamIds.Contains(StreamId))
+                {
+                    _streamStoreNotification.Set();
+                }
             });
 
             Task.Run(PullAndPush);
@@ -70,7 +74,7 @@
         public int MaxCountPerRead
         {
             get { return _pageSize; }
-            set { _pageSize = (value <= 0) ? 1 : value; }
+            set { _pageSize = value <= 0 ? 1 : value; }
         }
 
         public void Dispose()

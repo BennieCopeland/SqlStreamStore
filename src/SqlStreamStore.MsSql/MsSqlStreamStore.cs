@@ -212,7 +212,7 @@
             base.Dispose(disposing);
         }
 
-        private IObservable<Unit> GetStoreObservable => _streamStoreNotifier.Value;
+        private IObservable<StreamStoreNotificationInfo> GetStoreObservable => _streamStoreNotifier.Value;
 
         private static async Task<T> ExecuteAndIgnoreErrors<T>(Func<Task<T>> operation)
         {

@@ -297,7 +297,9 @@
 
                     throw;
                 }
+#pragma warning disable 162
                 return NullAppendResult;
+#pragma warning restore 162
             }
         }
 
