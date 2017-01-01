@@ -4,10 +4,8 @@
     using System.Threading;
     using System.Threading.Tasks;
 
-    public struct StreamMessage
+    public class StreamMessage
     {
-        public static readonly StreamMessage[] EmptyArray = new StreamMessage[0];
-
         public readonly long Position;
         public readonly DateTime CreatedUtc;
         public readonly Guid MessageId;
@@ -32,8 +30,10 @@
                 position,
                 createdUtc,
                 type,
-                jsonMetadata, _ => Task.FromResult(jsonData))
-        {}
+                jsonMetadata,
+                _ => Task.FromResult(jsonData))
+        {
+        }
 
         public StreamMessage(
             string streamId,

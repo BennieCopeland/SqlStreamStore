@@ -256,7 +256,7 @@
 
                 new ReadStreamTheory("not-exist", 1, 2,
                     new ReadStreamPage("not-exist", PageReadStatus.StreamNotFound, 1, -1, -1, ReadDirection.Forward, true,
-                        StreamMessage.EmptyArray)),
+                        Array.Empty<StreamMessage>())),
 
                 new ReadStreamTheory("stream-2", 1, 2,
                     new ReadStreamPage("stream-2", PageReadStatus.Success, 1, 3, 2, ReadDirection.Forward, true,
