@@ -78,14 +78,15 @@
             return messages.ToArray();
         }
 
-        private static StreamMessage ExpectedStreamMessage(
+        private static StreamMessage CreateExpectedStreamMessage(
             string streamId,
             int messageNumber,
             int sequenceNumber,
-            DateTime created)
+            DateTime created,
+            long position = 0)
         {
             var id = Guid.Parse("00000000-0000-0000-0000-" + messageNumber.ToString().PadLeft(12, '0'));
-            return new StreamMessage(streamId, id, sequenceNumber, 0, created, "type", "\"metadata\"", "\"data\"");
+            return new StreamMessage(streamId, id, sequenceNumber, position, created, "type", "\"metadata\"", "\"data\"");
         }
     }
 

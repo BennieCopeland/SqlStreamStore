@@ -15,6 +15,7 @@ namespace SqlStreamStore
             long fromPositionExlusive,
             int maxCount,
             bool prefetch,
+            AllStreamFilter filter,
             ReadNextAllPage readNext,
             CancellationToken cancellationToken)
         {

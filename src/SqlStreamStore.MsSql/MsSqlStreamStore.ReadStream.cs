@@ -106,7 +106,7 @@
                               -1,
                               direction,
                               true,
-                              StreamMessage.EmptyArray,
+                              Array.Empty<StreamMessage>(),
                               readNext);
                     }
                     var lastStreamVersion = reader.GetInt32(0);

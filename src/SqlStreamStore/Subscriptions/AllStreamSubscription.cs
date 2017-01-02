@@ -169,7 +169,7 @@
             try
             {
                 readAllPage = await _readonlyStreamStore
-                    .ReadAllForwards(_nextPosition, MaxCountPerRead, _prefetchJsonData, _disposed.Token)
+                    .ReadAllForwards(_nextPosition, MaxCountPerRead, _prefetchJsonData, cancellationToken: _disposed.Token)
                     .NotOnCapturedContext();
             }
             catch(ObjectDisposedException)

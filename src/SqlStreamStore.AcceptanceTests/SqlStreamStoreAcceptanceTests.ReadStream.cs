@@ -1,5 +1,6 @@
 ﻿namespace SqlStreamStore
 {
+    using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
@@ -250,8 +251,8 @@
                 new ReadStreamTheory("stream-1", StreamVersion.Start, 2,
                     new ReadStreamPage("stream-1", PageReadStatus.Success, 0, 2, 2, ReadDirection.Forward, false,
                     new [] {
-                          ExpectedStreamMessage("stream-1", 1, 0, SystemClock.GetUtcNow()),
-                          ExpectedStreamMessage("stream-1", 2, 1, SystemClock.GetUtcNow())
+                          CreateExpectedStreamMessage("stream-1", 1, 0, SystemClock.GetUtcNow()),
+                          CreateExpectedStreamMessage("stream-1", 2, 1, SystemClock.GetUtcNow())
                           })),
 
                 new ReadStreamTheory("not-exist", 1, 2,
@@ -261,8 +262,8 @@
                 new ReadStreamTheory("stream-2", 1, 2,
                     new ReadStreamPage("stream-2", PageReadStatus.Success, 1, 3, 2, ReadDirection.Forward, true,
                     new [] {
-                          ExpectedStreamMessage("stream-2", 5, 1, SystemClock.GetUtcNow()),
-                          ExpectedStreamMessage("stream-2", 6, 2, SystemClock.GetUtcNow())
+                          CreateExpectedStreamMessage("stream-2", 5, 1, SystemClock.GetUtcNow()),
+                          CreateExpectedStreamMessage("stream-2", 6, 2, SystemClock.GetUtcNow())
                         }))
             };
 
@@ -276,16 +277,16 @@
                new ReadStreamTheory("stream-1", StreamVersion.End, 2,
                     new ReadStreamPage("stream-1", PageReadStatus.Success, -1, 0, 2, ReadDirection.Backward, false,
                         new [] {
-                          ExpectedStreamMessage("stream-1", 3, 2, SystemClock.GetUtcNow()),
-                          ExpectedStreamMessage("stream-1", 2, 1, SystemClock.GetUtcNow())
+                          CreateExpectedStreamMessage("stream-1", 3, 2, SystemClock.GetUtcNow()),
+                          CreateExpectedStreamMessage("stream-1", 2, 1, SystemClock.GetUtcNow())
                           })),
 
                  new ReadStreamTheory("stream-1", StreamVersion.End, 4,
                     new ReadStreamPage("stream-1", PageReadStatus.Success, -1, -1, 2, ReadDirection.Backward, true,
                         new [] {
-                            ExpectedStreamMessage("stream-1", 3, 2, SystemClock.GetUtcNow()),
-                            ExpectedStreamMessage("stream-1", 2, 1, SystemClock.GetUtcNow()),
-                            ExpectedStreamMessage("stream-1", 1, 0, SystemClock.GetUtcNow())
+                            CreateExpectedStreamMessage("stream-1", 3, 2, SystemClock.GetUtcNow()),
+                            CreateExpectedStreamMessage("stream-1", 2, 1, SystemClock.GetUtcNow()),
+                            CreateExpectedStreamMessage("stream-1", 1, 0, SystemClock.GetUtcNow())
                         }))
             };
 

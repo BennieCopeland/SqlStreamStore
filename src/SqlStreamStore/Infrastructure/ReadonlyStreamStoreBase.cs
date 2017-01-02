@@ -35,7 +35,8 @@ namespace SqlStreamStore.Infrastructure
             long fromPositionInclusive,
             int maxCount,
             bool prefetchJsonData,
-            CancellationToken cancellationToken = default(CancellationToken))
+            AllStreamFilter filter,
+            CancellationToken cancellationToken)
         {
             Ensure.That(fromPositionInclusive, nameof(fromPositionInclusive)).IsGte(0);
             Ensure.That(maxCount, nameof(maxCount)).IsGte(1);
@@ -49,9 +50,12 @@ namespace SqlStreamStore.Infrastructure
                                    "{maxCount}.", fromPositionInclusive, maxCount);
             }
 
-            ReadNextAllPage readNext = (nextPosition, ct) => ReadAllForwards(nextPosition, maxCount, prefetchJsonData, ct);
+            ReadNextAllPage readNext = 
+                (nextPosition, ct) => ReadAllForwards(nextPosition, maxCount, prefetchJsonData, filter, ct);
 
-            var page = await ReadAllForwardsInternal(fromPositionInclusive, maxCount, prefetchJsonData, readNext, cancellationToken)
+            var page = await ReadAllForwardsInternal(
+                    fromPositionInclusive, maxCount, prefetchJsonData, filter,
+                    readNext, cancellationToken)
                 .NotOnCapturedContext();
 
             // https://github.com/damianh/SqlStreamStore/issues/31
@@ -67,7 +71,7 @@ namespace SqlStreamStore.Infrastructure
             // Check for gap between last page and this.
             if (page.Messages[0].Position != fromPositionInclusive)
             {
-                page = await ReloadAfterDelay(fromPositionInclusive, maxCount, prefetchJsonData, readNext, cancellationToken);
+                page = await ReloadAfterDelay(fromPositionInclusive, maxCount, prefetchJsonData, filter, readNext, cancellationToken);
             }
 
             // check for gap in messages collection
@@ -75,7 +79,7 @@ namespace SqlStreamStore.Infrastructure
             {
                 if(page.Messages[i].Position + 1 != page.Messages[i + 1].Position)
                 {
-                    page = await ReloadAfterDelay(fromPositionInclusive, maxCount, prefetchJsonData, readNext, cancellationToken);
+                    page = await ReloadAfterDelay(fromPositionInclusive, maxCount, prefetchJsonData, filter, readNext, cancellationToken);
                     break;
                 }
             }
@@ -236,6 +240,7 @@ namespace SqlStreamStore.Infrastructure
             long fromPositionExlusive,
             int maxCount,
             bool prefetch,
+            AllStreamFilter filter,
             ReadNextAllPage readNext,
             CancellationToken cancellationToken);
 
@@ -301,12 +306,14 @@ namespace SqlStreamStore.Infrastructure
             long fromPositionInclusive,
             int maxCount,
             bool prefetch,
+            AllStreamFilter filter,
             ReadNextAllPage readNext,
             CancellationToken cancellationToken)
         {
             Logger.InfoFormat($"ReadAllForwards: gap detected in position, reloading after {DefaultReloadInterval}ms");
             await Task.Delay(DefaultReloadInterval, cancellationToken);
-            var reloadedPage = await ReadAllForwardsInternal(fromPositionInclusive, maxCount, prefetch, readNext, cancellationToken)
+            var reloadedPage = await ReadAllForwardsInternal(
+                    fromPositionInclusive, maxCount, prefetch, filter, readNext, cancellationToken)
                 .NotOnCapturedContext();
             return await FilterExpired(reloadedPage, readNext, cancellationToken).NotOnCapturedContext();
         }

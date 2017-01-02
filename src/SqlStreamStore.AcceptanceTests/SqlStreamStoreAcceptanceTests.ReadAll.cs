@@ -20,12 +20,12 @@
                     await store.AppendToStream("stream-2", ExpectedVersion.NoStream, CreateNewStreamMessages(4, 5, 6));
                     var expectedMessages = new[]
                     {
-                        ExpectedStreamMessage("stream-1", 1, 0, fixture.GetUtcNow()),
-                        ExpectedStreamMessage("stream-1", 2, 1, fixture.GetUtcNow()),
-                        ExpectedStreamMessage("stream-1", 3, 2, fixture.GetUtcNow()),
-                        ExpectedStreamMessage("stream-2", 4, 0, fixture.GetUtcNow()),
-                        ExpectedStreamMessage("stream-2", 5, 1, fixture.GetUtcNow()),
-                        ExpectedStreamMessage("stream-2", 6, 2, fixture.GetUtcNow())
+                        CreateExpectedStreamMessage("stream-1", 1, 0, fixture.GetUtcNow()),
+                        CreateExpectedStreamMessage("stream-1", 2, 1, fixture.GetUtcNow()),
+                        CreateExpectedStreamMessage("stream-1", 3, 2, fixture.GetUtcNow()),
+                        CreateExpectedStreamMessage("stream-2", 4, 0, fixture.GetUtcNow()),
+                        CreateExpectedStreamMessage("stream-2", 5, 1, fixture.GetUtcNow()),
+                        CreateExpectedStreamMessage("stream-2", 6, 2, fixture.GetUtcNow())
                     };
 
                     var page = await store.ReadAllForwards(Position.Start, 4);
@@ -116,18 +116,18 @@
                     await store.AppendToStream("stream-2", ExpectedVersion.NoStream, CreateNewStreamMessages(4, 5, 6));
                     var expectedMessages = new[]
                     {
-                        ExpectedStreamMessage("stream-1", 1, 0, fixture.GetUtcNow()),
-                        ExpectedStreamMessage("stream-1", 2, 1, fixture.GetUtcNow()),
-                        ExpectedStreamMessage("stream-1", 3, 2, fixture.GetUtcNow()),
-                        ExpectedStreamMessage("stream-2", 4, 0, fixture.GetUtcNow()),
-                        ExpectedStreamMessage("stream-2", 5, 1, fixture.GetUtcNow()),
-                        ExpectedStreamMessage("stream-2", 6, 2, fixture.GetUtcNow())
+                        CreateExpectedStreamMessage("stream-1", 1, 0, fixture.GetUtcNow()),
+                        CreateExpectedStreamMessage("stream-1", 2, 1, fixture.GetUtcNow()),
+                        CreateExpectedStreamMessage("stream-1", 3, 2, fixture.GetUtcNow()),
+                        CreateExpectedStreamMessage("stream-2", 4, 0, fixture.GetUtcNow()),
+                        CreateExpectedStreamMessage("stream-2", 5, 1, fixture.GetUtcNow()),
+                        CreateExpectedStreamMessage("stream-2", 6, 2, fixture.GetUtcNow())
                     }.Reverse().ToArray();
 
                     var page = await store.ReadAllBackwards(Position.End, 4);
                     List<StreamMessage> messages = new List<StreamMessage>(page.Messages);
                     int count = 0;
-                    while (!page.IsEnd && count < 20) //should not take more than 20 iterations.
+                    while (!page.IsEnd)
                     {
                         page = await store.ReadAllBackwards(page.NextPosition, 10);
                         messages.AddRange(page.Messages);
@@ -151,9 +151,6 @@
                         message.StreamId.ShouldBe(expectedMessage.StreamId);
                         message.StreamVersion.ShouldBe(expectedMessage.StreamVersion);
                         message.Type.ShouldBe(expectedMessage.Type);
-
-                        // We don't care about StreamMessage.Position and StreamMessage.Position
-                        // as they are non-deterministic
                     }
                 }
             }
@@ -187,7 +184,7 @@
         [InlineData(3, 1, 2, 2, 1, 3)]
         [InlineData(3, 2, 1, 1, 2, 3)]
         [InlineData(3, 3, 1, 0, 3, 3)]
-        public async Task When_read_all_forwards(
+        public async Task Can_read_all_forwards(
             int numberOfSeedMessages,
             int fromPosition,
             int maxCount,
@@ -221,7 +218,7 @@
         [InlineData(3, -1, 3, 3, 2, 0)] // Read entire store
         [InlineData(3, -1, 4, 3, 2, 0)] // Read entire store
         [InlineData(0, -1, 1, 0, 0, 0)]
-        public async Task When_read_all_backwards(
+        public async Task Can_read_all_backwards(
             int numberOfSeedMessages,
             int fromPosition,
             int maxCount,
@@ -246,6 +243,36 @@
                     allMessagesPage.Messages.Length.ShouldBe(expectedCount);
                     allMessagesPage.FromPosition.ShouldBe(expectedFromPosition);
                     allMessagesPage.NextPosition.ShouldBe(expectedNextCheckPoint);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Can_filter_by_streamid_startswith()
+        {
+            using (var fixture = GetFixture())
+            {
+                using (var store = await fixture.GetStreamStore())
+                {
+                    await store.AppendToStream("foo/stream-1", ExpectedVersion.NoStream, CreateNewStreamMessages(1, 2, 3));
+                    await store.AppendToStream("bar/stream-1", ExpectedVersion.NoStream, CreateNewStreamMessages(4, 5, 6));
+                    await store.AppendToStream("foo/stream-2", ExpectedVersion.NoStream, CreateNewStreamMessages(7, 8, 9));
+                    await store.AppendToStream("bar/stream-2", ExpectedVersion.NoStream, CreateNewStreamMessages(10, 11, 12));
+
+                    var expectedMessages = new[]
+                    {
+                        CreateExpectedStreamMessage("bar/stream-1", 4, 0, fixture.GetUtcNow(), 3),
+                        CreateExpectedStreamMessage("bar/stream-1", 5, 1, fixture.GetUtcNow(), 4),
+                        CreateExpectedStreamMessage("bar/stream-1", 6, 2, fixture.GetUtcNow(), 5),
+                        CreateExpectedStreamMessage("bar/stream-2", 10, 0, fixture.GetUtcNow(), 6),
+                        CreateExpectedStreamMessage("bar/stream-2", 11, 1, fixture.GetUtcNow(), 7),
+                        CreateExpectedStreamMessage("bar/stream-2", 12, 2, fixture.GetUtcNow(), 8)
+                    };
+
+                    var filter = AllStreamFilter.StreamIdsStartWith("bar");
+                    var page = await store.ReadAllForwards(Position.Start, 100, filter: filter);
+
+                    page.Messages.ShouldBe(expectedMessages);
                 }
             }
         }

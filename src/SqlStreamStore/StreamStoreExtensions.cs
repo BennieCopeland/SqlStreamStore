@@ -30,7 +30,7 @@
             this IReadonlyStreamStore readonlyStreamStore,
             long fromPositionInclusive,
             int maxCount,
-            CancellationToken cancellationToken = default(CancellationToken))
+            CancellationToken cancellationToken)
         {
             return readonlyStreamStore.ReadAllForwards(
                 fromPositionInclusive,

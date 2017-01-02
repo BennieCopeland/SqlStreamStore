@@ -20,7 +20,10 @@
         /// </param>
         /// <param name="prefetchJsonData">
         ///     Prefetches the message data as part of the page read. This means a single request to the server
-        ///     but a higher payload size.
+        ///     but a higher payload size. Optional. Default is true.
+        /// </param>
+        /// <param name="filter">
+        ///     Filters streams and message types for more optimized read scenarios. Optional. Default is none.
         /// </param>
         /// <param name="cancellationToken">
         ///     The cancellation instruction.
@@ -33,6 +36,7 @@
             long fromPositionInclusive,
             int maxCount,
             bool prefetchJsonData = true,
+            AllStreamFilter filter = null,
             CancellationToken cancellationToken = default(CancellationToken));
 
         /// <summary>
