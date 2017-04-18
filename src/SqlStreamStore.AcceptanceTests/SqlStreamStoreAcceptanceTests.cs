@@ -10,48 +10,56 @@
     using Xunit;
     using Xunit.Abstractions;
 
-    public partial class StreamStoreAcceptanceTests : IDisposable
+    public abstract partial class StreamStoreAcceptanceTests : IDisposable
     {
         private readonly ITestOutputHelper _testOutputHelper;
         private readonly IDisposable _logCapture;
+        protected readonly StreamStoreAcceptanceTestFixture fixture;
+        protected readonly IStreamStore store;
 
         public StreamStoreAcceptanceTests(ITestOutputHelper testOutputHelper)
         {
             _testOutputHelper = testOutputHelper;
             _logCapture = CaptureLogs(testOutputHelper);
+            fixture = GetFixture();
+            store = fixture.GetStreamStore().Result;
         }
 
         public void Dispose()
         {
+            store.Dispose();
+            fixture.Dispose();
             _logCapture.Dispose();
         }
 
+        protected abstract StreamStoreAcceptanceTestFixture GetFixture();
+
+        protected abstract IDisposable CaptureLogs(ITestOutputHelper testOutputHelper);
+
         [Fact]
-        public async Task When_dispose_and_read_then_should_throw()
+        public void When_dispose_and_read_then_should_throw()
         {
-            using(var fixture = GetFixture())
-            {
-                var store = await fixture.GetStreamStore();
-                store.Dispose();
+            // given
+            store.Dispose();
 
-                Func<Task> act = () => store.ReadAllForwards(Position.Start, 10);
+            // when
+            Func<Task> act = () => store.ReadAllForwards(Position.Start, 10);
 
-                act.ShouldThrow<ObjectDisposedException>();
-            }
+            // then
+            act.ShouldThrow<ObjectDisposedException>();
         }
 
         [Fact]
-        public async Task Can_dispose_more_than_once()
+        public void Can_dispose_more_than_once()
         {
-            using (var fixture = GetFixture())
-            {
-                var store = await fixture.GetStreamStore();
-                store.Dispose();
+            // given
+            store.Dispose();
 
-                Action act = store.Dispose;
+            // when
+            Action act = store.Dispose;
 
-                act.ShouldNotThrow();
-            }
+            // then
+            act.ShouldNotThrow();
         }
 
         public static NewStreamMessage[] CreateNewStreamMessages(params int[] messageNumbers)

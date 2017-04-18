@@ -26,29 +26,24 @@
                     string streamId2 = "stream-2";
                     await AppendMessages(store, streamId2, 10);
 
-                    var done = new TaskCompletionSource<StreamMessage>();
-                    var receivedMessages = new List<StreamMessage>();
+                    var subscriber = new StreamSubscriber()
+                    {
+                        Condition = (_, message, ct) => message.StreamVersion == 11
+                    };
+
                     using (var subscription = store.SubscribeToStream(
                         streamId1,
                         null,
-                        (_, message, ct) =>
-                        {
-                            receivedMessages.Add(message);
-                            if (message.StreamVersion == 11)
-                            {
-                                done.SetResult(message);
-                            }
-                            return Task.CompletedTask;
-                        }))
+                        subscriber.StreamMessageReceived))
                     {
                         await AppendMessages(store, streamId1, 2);
 
-                        var receivedMessage = await done.Task.WithTimeout();
+                        await subscriber.ConditionMetOrTimeout();
 
-                        receivedMessages.Count.ShouldBe(12);
+                        subscriber.ReceivedMessages.Count.ShouldBe(12);
                         subscription.StreamId.ShouldBe(streamId1);
-                        receivedMessage.StreamId.ShouldBe(streamId1);
-                        receivedMessage.StreamVersion.ShouldBe(11);
+                        subscriber.ReceivedMessages.Last().StreamId.ShouldBe(streamId1);
+                        subscriber.ReceivedMessages.Last().StreamVersion.ShouldBe(11);
                         subscription.LastVersion.Value.ShouldBeGreaterThan(0);
                     }
                 }
@@ -89,29 +84,24 @@
                 {
                     string streamId = "stream-1";
 
-                    var done = new TaskCompletionSource<StreamMessage>();
-                    var receivedMessages = new List<StreamMessage>();
+                    var subscriber = new StreamSubscriber()
+                    {
+                        Condition = (_, message, ct) => message.StreamVersion == 1
+                    };
+
                     using (var subscription = store.SubscribeToStream(
                         streamId,
                         null,
-                        (_, message, ct) =>
-                        {
-                            receivedMessages.Add(message);
-                            if (message.StreamVersion == 1)
-                            {
-                                done.SetResult(message);
-                            }
-                            return Task.CompletedTask;
-                        }))
+                        subscriber.StreamMessageReceived))
                     {
                         await AppendMessages(store, streamId, 2);
 
-                        var receivedMessage = await done.Task.WithTimeout();
+                        await subscriber.ConditionMetOrTimeout();
 
-                        receivedMessages.Count.ShouldBe(2);
+                        subscriber.ReceivedMessages.Count.ShouldBe(2);
                         subscription.StreamId.ShouldBe(streamId);
-                        receivedMessage.StreamId.ShouldBe(streamId);
-                        receivedMessage.StreamVersion.ShouldBe(1);
+                        subscriber.ReceivedMessages.Last().StreamId.ShouldBe(streamId);
+                        subscriber.ReceivedMessages.Last().StreamVersion.ShouldBe(1);
                         subscription.LastVersion.Value.ShouldBeGreaterThan(0);
                     }
                 }
@@ -981,7 +971,7 @@
         {
             private readonly TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
             public Action<string> Logger { get; set; } = (_) => { };
-            public Func<IStreamSubscription, StreamMessage, bool> Condition { get; set; } = (_, __) => true;
+            public Func<IStreamSubscription, StreamMessage, CancellationToken, bool> Condition { get; set; } = (_, __, ___) => true;
             public List<IStreamSubscription> Subscriptions { get; } = new List<IStreamSubscription>();
             public List<StreamMessage> ReceivedMessages { get; } = new List<StreamMessage>();
 
@@ -990,7 +980,7 @@
                 Logger($"Received message {message.StreamId} {message.StreamVersion} {message.Position}");
                 Subscriptions.Add(subscription);
                 ReceivedMessages.Add(message);
-                if (Condition(subscription, message))
+                if (Condition(subscription, message, ct))
                 {
                     tcs.SetResult(true);
                 }
