@@ -3,6 +3,7 @@
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Shouldly;
     using SqlStreamStore.Imports.AsyncEx.Nito.AsyncEx.Coordination;
@@ -64,19 +65,16 @@
                     const string streamId = "stream-1";
                     await AppendMessages(store, streamId, 10);
 
-                    var done = new TaskCompletionSource<IStreamSubscription>();
+                    var subscriber = new StreamSubscriber();
+
                     using (var subscription = store.SubscribeToStream(
                         streamId,
                         null,
-                        (sub, _, ct) =>
-                        {
-                            done.SetResult(sub);
-                            return Task.CompletedTask;
-                        }))
+                        subscriber.StreamMessageReceived))
                     {
-                        var receivedSubscription = await done.Task.WithTimeout();
+                        await subscriber.ConditionMetOrTimeout();
 
-                        receivedSubscription.ShouldBe(subscription);
+                        subscriber.Subscriptions.FirstOrDefault().ShouldBe(subscription);
                     }
                 }
             }
@@ -133,27 +131,19 @@
                     string streamId2 = "stream-2";
                     await AppendMessages(store, streamId2, 3);
 
-                    var receiveMessages = new TaskCompletionSource<StreamMessage>();
-                    List<StreamMessage> receivedMessages = new List<StreamMessage>();
-                    using(store.SubscribeToAll(
-                        null,
-                        (_, message) =>
-                        {
-                            _testOutputHelper.WriteLine($"Received message {message.StreamId} " +
-                                                        $"{message.StreamVersion} {message.Position}");
-                            receivedMessages.Add(message);
-                            if (message.StreamId == streamId1 && message.StreamVersion == 3)
-                            {
-                                receiveMessages.SetResult(message);
-                            }
-                            return Task.CompletedTask;
-                        }))
+                    var subscriber = new AllStreamSubscriber
+                    {
+                        Condition = (_, message) => message.StreamId == streamId1 && message.StreamVersion == 3,
+                        Logger = _testOutputHelper.WriteLine
+                    };
+
+                    using (store.SubscribeToAll(null, subscriber.AllStreamMessageReceived))
                     {
                         await AppendMessages(store, streamId1, 1);
 
-                        await receiveMessages.Task.WithTimeout();
+                        await subscriber.ConditionMetOrTimeout();
 
-                        receivedMessages.Count.ShouldBe(7);
+                        subscriber.ReceivedMessages.Count.ShouldBe(7);
                     }
                 }
             }
@@ -169,18 +159,13 @@
                     const string streamId = "stream-1";
                     await AppendMessages(store, streamId, 10);
 
-                    var done = new TaskCompletionSource<IAllStreamSubscription>();
-                    using (var subscription = store.SubscribeToAll(
-                        null,
-                        (sub, _) =>
-                        {
-                            done.SetResult(sub);
-                            return Task.CompletedTask;
-                        }))
-                    {
-                        var receivedSubscription = await done.Task.WithTimeout();
+                    var subscriber = new AllStreamSubscriber();
 
-                        receivedSubscription.ShouldBe(subscription);
+                    using (var subscription = store.SubscribeToAll(null, subscriber.AllStreamMessageReceived))
+                    {
+                        await subscriber.ConditionMetOrTimeout();
+
+                        subscriber.Subscriptions.FirstOrDefault().ShouldBe(subscription);
                     }
                 }
             }
@@ -197,20 +182,13 @@
 
                     string streamId2 = "stream-2";
 
-                    var receiveMessages = new TaskCompletionSource<StreamMessage>();
-                    List<StreamMessage> receivedMessages = new List<StreamMessage>();
-                    using (store.SubscribeToAll(
-                        null,
-                        (_, message) =>
-                        {
-                            _testOutputHelper.WriteLine($"Received message {message.StreamId} {message.StreamVersion} {message.Position}");
-                            receivedMessages.Add(message);
-                            if (message.StreamId == streamId1 && message.StreamVersion == 3)
-                            {
-                                receiveMessages.SetResult(message);
-                            }
-                            return Task.CompletedTask;
-                        }))
+                    var subscriber = new AllStreamSubscriber
+                    {
+                        Condition = (_, message) => message.StreamId == streamId1 && message.StreamVersion == 3,
+                        Logger = _testOutputHelper.WriteLine
+                    };
+
+                    using (store.SubscribeToAll(null, subscriber.AllStreamMessageReceived))
                     {
                         await AppendMessages(store, streamId1, 3);
 
@@ -218,9 +196,9 @@
 
                         await AppendMessages(store, streamId1, 1);
 
-                        await receiveMessages.Task.WithTimeout();
+                        await subscriber.ConditionMetOrTimeout();
 
-                        receivedMessages.Count.ShouldBe(7);
+                        subscriber.ReceivedMessages.Count.ShouldBe(7);
                     }
                 }
             }
@@ -966,6 +944,66 @@
             {
                 var newmessage = new NewStreamMessage(Guid.NewGuid(), "MyEvent", "{}");
                 await streamStore.AppendToStream(streamId, ExpectedVersion.Any, newmessage);
+            }
+        }
+
+        private class AllStreamSubscriber
+        {
+            private readonly TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+            public Action<string> Logger { get; set; } = (_) => { };
+            public Func<IAllStreamSubscription, StreamMessage, bool> Condition { get; set; } = (_, __) => true;
+            public List<IAllStreamSubscription> Subscriptions { get; } = new List<IAllStreamSubscription>();
+            public List<StreamMessage> ReceivedMessages { get; } = new List<StreamMessage>();
+
+            public Task AllStreamMessageReceived(IAllStreamSubscription subscription, StreamMessage message)
+            {
+                Logger($"Received message {message.StreamId} {message.StreamVersion} {message.Position}");
+                Subscriptions.Add(subscription);
+                ReceivedMessages.Add(message);
+                if(Condition(subscription, message))
+                {
+                    tcs.SetResult(true);
+                }
+                return Task.CompletedTask;
+            }
+
+            public async Task<bool> ConditionMetOrTimeout(int timeout = 3000)
+            {
+                if (await Task.WhenAny(tcs.Task, Task.Delay(timeout)) == tcs.Task)
+                {
+                    return await tcs.Task;
+                }
+                throw new TimeoutException("Timed out waiting for task");
+            }
+        }
+
+        private class StreamSubscriber
+        {
+            private readonly TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+            public Action<string> Logger { get; set; } = (_) => { };
+            public Func<IStreamSubscription, StreamMessage, bool> Condition { get; set; } = (_, __) => true;
+            public List<IStreamSubscription> Subscriptions { get; } = new List<IStreamSubscription>();
+            public List<StreamMessage> ReceivedMessages { get; } = new List<StreamMessage>();
+
+            public Task StreamMessageReceived(IStreamSubscription subscription, StreamMessage message, CancellationToken ct = new CancellationToken())
+            {
+                Logger($"Received message {message.StreamId} {message.StreamVersion} {message.Position}");
+                Subscriptions.Add(subscription);
+                ReceivedMessages.Add(message);
+                if (Condition(subscription, message))
+                {
+                    tcs.SetResult(true);
+                }
+                return Task.CompletedTask;
+            }
+
+            public async Task<bool> ConditionMetOrTimeout(int timeout = 3000)
+            {
+                if (await Task.WhenAny(tcs.Task, Task.Delay(timeout)) == tcs.Task)
+                {
+                    return await tcs.Task;
+                }
+                throw new TimeoutException("Timed out waiting for task");
             }
         }
     }
